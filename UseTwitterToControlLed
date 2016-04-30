@@ -1,0 +1,182 @@
+import twitter4j.conf.*;
+import twitter4j.api.*;
+import twitter4j.*;
+
+import java.util.List;
+import java.util.Iterator;
+
+import processing.serial.*;
+import cc.arduino.*;
+
+// Create a session using your Temboo account application details
+
+//variable setup
+ConfigurationBuilder   cb;
+Query query;
+Twitter twitter;
+
+ArrayList<String> twittersList;
+Timer             time;
+
+//Number twitters per search
+int numberSearch = 1;
+
+String textForTsunami1= "";
+String textForVolcano1 = "";
+String textForTsunami2 = "";
+String textForVolcano2 = "";
+Arduino arduino;
+int ledBlue = 9; // the pin that the LED is attached to
+int ledRed = 3;
+int brightnessBlue = 255;    // how bright the LED is
+int brightnessRed = 255;
+int brightness = 255;
+int fadeAmount = 8;    // how many points to fade the LED by
+
+void setup() {
+  
+  size (200,200);
+  //You can only search once every 1 minute
+  time = new Timer(10000); //1 min with 10 secs
+  //Acreditacion
+  cb = new ConfigurationBuilder();
+  cb.setOAuthConsumerKey("3xwkNmdVNpv4joYZdtnAKL7um");
+  cb.setOAuthConsumerSecret("CCBGfZ2XXX0e1sLDO0Nws4sE5BwoeA90Y33qAtsidnTuSJweag");
+  cb.setOAuthAccessToken("1911058933-SBZNSkFyQqLg1mQpUNOPcfDCg9yyjHOx1bWdTri");
+  cb.setOAuthAccessTokenSecret("rgfNN8DdVoDXO2sM7dkyUPTF7FFtEpIApEBCsU15gNVrN");
+  
+  //Make the twitter object and prepare the query
+  twitter = new TwitterFactory(cb.build()).getInstance();
+  
+  //arduino setup
+  arduino = new Arduino(this, Arduino.list()[2], 57600);
+  arduino.pinMode(ledBlue, Arduino.OUTPUT);
+  arduino.pinMode(ledRed, Arduino.OUTPUT);
+  arduino.analogWrite(ledBlue, brightnessBlue);
+  arduino.analogWrite(ledRed, brightnessRed);
+}
+
+void draw() {
+  textForTsunami1 = runLatestTweet("tsunami");
+  textForVolcano1 = runLatestTweet("volcano");
+  //println(textForTsunami1);
+  //println(textForVolcano1);
+   if ( textForTsunami1.equals(textForTsunami2) == false){
+  //  println("2");
+    fade (ledBlue);
+  }
+  //println(textForVolcano2);
+  if ( textForVolcano1.equals(textForVolcano2) == false) {
+  //  println("2");
+    fade (ledRed);
+  }
+
+  //delay(5000);
+  textForTsunami2 = runLatestTweet("tsunami");
+  textForVolcano2 = runLatestTweet("volcano");
+  //println(textForTsunami2);
+  if ( textForTsunami1.equals(textForTsunami2) == false){
+  //  println("2");
+    fade (ledBlue);
+  }
+  //println(textForVolcano2);
+  if ( textForVolcano1.equals(textForVolcano2) == false) {
+  //  println("2");
+    fade (ledRed);
+  }
+  //} else {
+  //  println("3");
+  //}
+  //delay(5000);
+}
+
+
+String runLatestTweet(String keyword) {
+  ArrayList<String> twitt = new ArrayList<String>();
+
+  query = new Query(keyword);
+  query.setCount(1);
+  try {
+    QueryResult result = twitter.search(query);
+    List<Status> tweets = result.getTweets();
+//    println("New Tweet : ");
+    for (Status tw : tweets) {
+      String msg = tw.getText();
+//    String usr = tw.getUser().getScreenName();
+//      String twStr = "@"+usr+": "+msg;
+      println(msg);
+      twitt.add(msg);
+    }
+  }
+  catch (TwitterException te) {
+    println("Couldn't connect: " + te);
+  }
+  
+  // Run the Choreo and store the results
+  String text;
+  text = twitt.get(0);
+  return text;
+}
+
+
+void fade (int pin) {
+  
+  for ( int i = 255; i > 0 ; i -= 5) { 
+  brightness = i;
+  arduino.analogWrite(pin, brightness);
+  delay(30);
+  }
+  arduino.analogWrite(pin, 0);
+  delay(2000);
+  for (int k = 0; k < 255; k += 5) {
+  brightness = k;
+  arduino.analogWrite(pin, brightness); 
+  delay(30);
+  }
+  delay(80);
+}
+
+class Timer {
+  int savedTime; // When Timer started
+  int totalTime; // How long Timer should last
+
+  float msTime;
+  int tempTime;
+
+  boolean end;
+
+  Timer(int tempTotalTime) {
+    totalTime = tempTotalTime;
+  }
+
+  void start() {
+    // When the timer starts it stores the current time in milliseconds.
+    savedTime = millis();
+  }
+
+  float getCurrentTime() {
+    return (msTime = tempTime/1000.0);
+  }
+
+  void reset() {
+    tempTime = 0;
+    start();
+  }
+  
+  boolean isDone(){
+    return end;
+  }
+
+  // The function isFinished() returns true if 5,000 ms have passed. 
+  // The work of the timer is farmed out to this method.
+  void update() { 
+    // Check how much time has passed
+    tempTime = millis()- savedTime;
+    if (tempTime > totalTime) {
+      end =  true;
+    } 
+    else {
+      end = false;
+    }
+  }
+}
